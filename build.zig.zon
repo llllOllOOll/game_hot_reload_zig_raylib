@@ -1,0 +1,16 @@
+.{
+    .name = .zig_modules,
+    .version = "0.1.0",
+    .fingerprint = 0x5d27058f8d4fe251, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.16.0-dev.2261+d6b3dd25a",
+    .dependencies = .{
+        .zraylib = .{
+            .path = "../zraylib", // Local path
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
