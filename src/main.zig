@@ -1,6 +1,10 @@
 const std = @import("std");
 const Platform = @import("platform").Platform;
-const c = Platform.c;
+const builtin = @import("builtin");
+
+const dl = @cImport({
+    @cInclude("dlfcn.h");
+});
 
 // Tipo das funções exportadas pelo game code
 const GameUpdateFn = *const fn (
@@ -8,6 +12,7 @@ const GameUpdateFn = *const fn (
     memory_size: usize,
     window_width: f32,
     window_height: f32,
+    command_buffer: *Platform.CommandBuffer,
 ) callconv(.c) void;
 
 const GameOnReloadFn = *const fn (
@@ -25,11 +30,29 @@ const GameCode = struct {
         var threaded = std.Io.Threaded.init_single_threaded;
         const io = threaded.io();
 
-        var lib = try std.DynLib.open(path);
+        const file1 = try std.Io.Dir.cwd().openFile(io, path, .{});
+        defer file1.close(io);
+
+        var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+        const path_z = try std.fmt.bufPrintZ(&path_buf, "{s}", .{path});
+
+        const handle = dl.dlopen(path_z.ptr, dl.RTLD_LAZY | dl.RTLD_LOCAL);
+
+        if (handle == null) {
+            const err_msg = dl.dlerror();
+            if (err_msg != null) {
+                std.debug.print("❌ dlopen error: {s}\n", .{err_msg});
+            }
+            return error.FileNotFound;
+        }
+
+        // ========== MUDANÇA: Usar .? para unwrap o optional ==========
+        var lib = std.DynLib{ .inner = .{ .handle = handle.? } };
+        // ========== FIM DA MUDANÇA ==========
+
         errdefer lib.close();
 
-        const update_fn = lib.lookup(GameUpdateFn, "game_update") orelse
-            return error.SymbolNotFound;
+        const update_fn = lib.lookup(GameUpdateFn, "game_update") orelse return error.SymbolNotFound;
         const on_reload_fn = lib.lookup(GameOnReloadFn, "game_on_reload");
 
         const file = try std.Io.Dir.cwd().openFile(io, path, .{});
@@ -84,31 +107,34 @@ fn hotReloadIfNeeded(
 }
 
 pub fn main() !void {
-    std.debug.print("=== Game Engine with Hot Reload ===\n", .{});
+    std.debug.print("=== Game Engine with Hot Reload + Command Buffer ===\n", .{});
     std.debug.print("Loading game code dynamically...\n", .{});
     std.debug.print("---\n", .{});
 
-    // Initialize platform
-    var platform = try Platform.init(.{
+    // Initialize allocator
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Initialize platform with allocator
+    var platform = try Platform.init(allocator, .{
         .width = 1280,
         .height = 720,
-        .title = "My Game - Hot Reload",
+        .title = "My Game - Hot Reload + Command Buffer",
         .resizable = true,
     });
     defer platform.deinit();
+
     platform.setTargetFPS(60);
 
     // Permanent game memory
     const GAME_MEMORY_SIZE = 16 * 1024;
-
-    // var game_memory: [GAME_MEMORY_SIZE]u8 = undefined;
-    // @memset(&game_memory, 0);
-
-    var game_memory: [GAME_MEMORY_SIZE]u8 align(8) = undefined; // ← ADICIONAR align(8)
+    var game_memory: [GAME_MEMORY_SIZE]u8 align(8) = undefined;
     @memset(&game_memory, 0);
 
     // Load game code dynamically
     const so_path = "zig-out/lib/libgame.so";
+
     var game_code = try GameCode.load(so_path);
     defer game_code.unload();
 
@@ -125,7 +151,6 @@ pub fn main() !void {
 
         platform.beginFrame();
         platform.pollEvents();
-        c.clearBackground(c.BLACK);
 
         // Call dynamically loaded game update
         game_code.update_fn(
@@ -133,6 +158,7 @@ pub fn main() !void {
             game_memory.len,
             @as(f32, @floatFromInt(platform.config.width)),
             @as(f32, @floatFromInt(platform.config.height)),
+            platform.getCommandBuffer(),
         );
 
         platform.endFrame();

@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/game/root.zig"),
             .target = target,
             .optimize = optimize,
-            .link_libc = true, // ✅ ADICIONAR AQUI
+            // .link_libc = true, // ✅ ADICIONAR AQUI
         }),
         .linkage = .dynamic,
     });
@@ -61,11 +61,13 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    // ✅ IMPORTANTE: Linkar com libdl para dlopen/dlsym (hot reload)
-    if (target.result.os.tag == .linux) {
-        exe.root_module.linkSystemLibrary("dl", .{});
-    }
+    // // ✅ IMPORTANTE: Linkar com libdl para dlopen/dlsym (hot reload)
+    // if (target.result.os.tag == .linux) {
+    //     exe.root_module.linkSystemLibrary("dl", .{});
+    // }
 
+    exe.root_module.linkSystemLibrary("c", .{});
+    exe.rdynamic = true;
     b.installArtifact(exe);
 
     // ========================================

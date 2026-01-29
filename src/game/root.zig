@@ -1,156 +1,114 @@
 const std = @import("std");
-const Platform = @import("platform").Platform;
-const c = Platform.c;
 
-pub const GameState = struct {
-    // Hot reload flag
-    is_initialized: bool,
-    reload_count: u32,
+// ============================================================
+// Structs básicas
+// ============================================================
 
-    // Game counters
-    counter: u32,
-
-    // Red rectangle (bouncing)
-    rect_x: f32,
-    rect_y: f32,
-    rect_width: f32,
-    rect_height: f32,
-    direction: f32,
-
-    // Player (controllable)
-    player_x: f32,
-    player_y: f32,
-    player_size: f32,
-    player_speed: f32,
+pub const Color = extern struct {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
 };
 
-/// Main game update function - receives memory every frame
-/// This allows hot reload to work seamlessly without losing state
+pub const BLACK = Color{ .r = 0, .g = 0, .b = 0, .a = 255 };
+pub const WHITE = Color{ .r = 255, .g = 255, .b = 255, .a = 255 };
+pub const RED = Color{ .r = 255, .g = 0, .b = 0, .a = 255 };
+
+pub const GameState = struct {
+    initialized: bool,
+    frame_counter: u64,
+};
+
+// ============================================================
+// CommandBuffer
+// ============================================================
+
+// pub const CommandBuffer = opaque {
+//     extern fn pushClearBackground(self: *CommandBuffer, color: Color) void;
+//     extern fn pushDrawRectangle(
+//         self: *CommandBuffer,
+//         x: f32,
+//         y: f32,
+//         width: f32,
+//         height: f32,
+//         color: Color,
+//     ) void;
+// };
+
+pub const CommandBuffer = opaque {
+    extern fn pushClearBackground(
+        self: *CommandBuffer,
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+    ) void;
+
+    extern fn pushDrawRectangle(
+        self: *CommandBuffer,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+    ) void;
+};
+
+// ============================================================
+// Exports
+// ============================================================
+
 pub export fn game_update(
     memory: [*]u8,
     memory_size: usize,
     window_width: f32,
     window_height: f32,
+    command_buffer: *CommandBuffer,
 ) callconv(.c) void {
-    // Ensure we have enough space for GameState
-    if (memory_size < @sizeOf(GameState)) {
-        std.debug.print("Error: Not enough memory storage!\n", .{});
-        return;
-    }
+    if (memory_size < @sizeOf(GameState)) return;
 
-    // Cast memory to GameState pointer
     const state = @as(*GameState, @ptrCast(@alignCast(memory)));
 
-    // Initialize on first run only
-    if (!state.is_initialized) {
+    if (!state.initialized) {
         state.* = .{
-            .is_initialized = true,
-            .reload_count = 0,
-            .counter = 0,
-
-            // Red rectangle
-            .rect_x = 0.0,
-            .rect_y = 200.0,
-            .rect_width = 50.0,
-            .rect_height = 50.0,
-            .direction = 2.0,
-
-            // Player
-            .player_x = window_width / 2.0,
-            .player_y = window_height / 2.0,
-            .player_size = 40.0,
-            .player_speed = 3.0,
+            .initialized = true,
+            .frame_counter = 0,
         };
-
-        std.debug.print("=== GAME INITIALIZED ===\n", .{});
-        std.debug.print("Window: {d:.0}x{d:.0}\n", .{ window_width, window_height });
-        std.debug.print("Player at: ({d:.1}, {d:.1})\n", .{ state.player_x, state.player_y });
-        std.debug.print("Red rect at: ({d:.1}, {d:.1})\n", .{ state.rect_x, state.rect_y });
-
-        return; // Skip first frame update
+        std.debug.print("🎮 Inicializado! {d}x{d}\n", .{ window_width, window_height });
     }
 
-    // ========================================
-    // GAME LOGIC
-    // ========================================
+    state.frame_counter += 1;
 
-    state.counter += 1;
+    // AGORA VAMOS CHAMAR OS MÉTODOS
+    // command_buffer.pushClearBackground(BLACK);
+    // command_buffer.pushDrawRectangle(100, 100, 50, 50, RED);
 
-    // Update bouncing rectangle position
-    state.rect_x += state.direction;
-
-    // Bounce at screen edges
-    if (state.rect_x <= 0 or state.rect_x + state.rect_width >= window_width) {
-        state.direction *= -1;
-    }
-
-    // Player movement with WASD
-    const move_speed = state.player_speed;
-
-    if (c.isKeyDown(c.KEY_W)) {
-        state.player_y -= move_speed;
-    }
-    if (c.isKeyDown(c.KEY_S)) {
-        state.player_y += move_speed;
-    }
-    if (c.isKeyDown(c.KEY_A)) {
-        state.player_x -= move_speed;
-    }
-    if (c.isKeyDown(c.KEY_D)) {
-        state.player_x += move_speed;
-    }
-
-    // Boundary clamping (keep player on screen)
-    state.player_x = @max(0, @min(window_width - state.player_size, state.player_x));
-    state.player_y = @max(0, @min(window_height - state.player_size, state.player_y));
-
-    // Debug output every 60 frames (1 second at 60fps)
-    if (state.counter % 60 == 0) {
-        std.debug.print("Frame: {}, RedRect_X: {d:.1}, Player: ({d:.1}, {d:.1}), Reloads: {}\n", .{
-            state.counter,
-            state.rect_x,
-            state.player_x,
-            state.player_y,
-            state.reload_count,
-        });
-    }
-
-    // ========================================
-    // RENDERING
-    // ========================================
-
-    // Draw red bouncing rectangle
-    c.drawRectangle(
-        state.rect_x,
-        state.rect_y,
-        state.rect_width,
-        state.rect_height,
-        c.RED,
+    command_buffer.pushClearBackground(
+        BLACK.r,
+        BLACK.g,
+        BLACK.b,
+        BLACK.a,
     );
 
-    // Draw player (purple square)
-    c.drawRectangle(
-        state.player_x,
-        state.player_y,
-        state.player_size,
-        state.player_size,
-        c.PURPLE,
+    command_buffer.pushDrawRectangle(
+        100,
+        100,
+        50,
+        50,
+        RED.r,
+        RED.g,
+        RED.b,
+        RED.a,
     );
-
-    // Draw FPS counter
-    c.drawText("FPS: 60", 10.0, 10.0, 20.0, c.YELLOW);
-
-    // Draw reload count (helps verify hot reload is working)
-    if (state.reload_count > 0) {
-        var buffer: [64]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&buffer, "Hot Reloads: {}", .{state.reload_count}) catch "Error";
-        //                    ^^^^^^^ MUDANÇA AQUI: bufPrint → bufPrintZ
-        c.drawText(text.ptr, 10.0, 40.0, 20.0, c.GREEN);
+    if (state.frame_counter % 60 == 0) {
+        std.debug.print("✅ Frame {}\n", .{state.frame_counter});
     }
 }
 
-/// Called when the game code is hot-reloaded
-/// This allows you to track reloads and perform any necessary adjustments
 pub export fn game_on_reload(
     memory: [*]u8,
     memory_size: usize,
@@ -158,13 +116,222 @@ pub export fn game_on_reload(
     if (memory_size < @sizeOf(GameState)) return;
 
     const state = @as(*GameState, @ptrCast(@alignCast(memory)));
-    state.reload_count += 1;
-
-    std.debug.print("\n🔥 HOT RELOAD #{} 🔥\n", .{state.reload_count});
-    std.debug.print("State preserved! Frame: {}, Player: ({d:.1}, {d:.1})\n", .{
-        state.counter,
-        state.player_x,
-        state.player_y,
-    });
-    std.debug.print("Red rect at: {d:.1}\n\n", .{state.rect_x});
+    std.debug.print("🔥 Hot reload! Frame atual: {}\n", .{state.frame_counter});
 }
+
+// const std = @import("std");
+//
+// //
+// // ============================================================
+// // Shared ABI-safe types (must match platform exactly)
+// // ============================================================
+// //
+//
+// // Plain old data — safe across DLL boundary
+// pub const Color = extern struct {
+//     r: u8,
+//     g: u8,
+//     b: u8,
+//     a: u8,
+// };
+//
+// // Common colors
+// pub const BLACK = Color{ .r = 0, .g = 0, .b = 0, .a = 255 };
+// pub const WHITE = Color{ .r = 255, .g = 255, .b = 255, .a = 255 };
+// pub const RED = Color{ .r = 255, .g = 0, .b = 0, .a = 255 };
+// pub const GREEN = Color{ .r = 0, .g = 255, .b = 0, .a = 255 };
+// pub const BLUE = Color{ .r = 0, .g = 0, .b = 255, .a = 255 };
+// pub const YELLOW = Color{ .r = 255, .g = 255, .b = 0, .a = 255 };
+// pub const PURPLE = Color{ .r = 200, .g = 122, .b = 255, .a = 255 };
+//
+// //
+// // ============================================================
+// // Opaque CommandBuffer interface (implemented by platform)
+// // ============================================================
+// //
+//
+// pub const CommandBuffer = opaque {
+//     extern fn pushClearBackground(self: *CommandBuffer, color: Color) void;
+//     extern fn pushDrawRectangle(
+//         self: *CommandBuffer,
+//         x: f32,
+//         y: f32,
+//         width: f32,
+//         height: f32,
+//         color: Color,
+//     ) void;
+//
+//     extern fn pushDrawText(
+//         self: *CommandBuffer,
+//         text_ptr: [*]const u8,
+//         text_len: usize,
+//         x: f32,
+//         y: f32,
+//         size: f32,
+//         color: Color,
+//     ) void;
+// };
+//
+// //
+// // ============================================================
+// // Input (temporary direct extern — later becomes InputBuffer)
+// // ============================================================
+// //
+//
+// extern fn isKeyDown(key: c_int) bool;
+//
+// const KEY_W: c_int = 87;
+// const KEY_A: c_int = 65;
+// const KEY_S: c_int = 83;
+// const KEY_D: c_int = 68;
+//
+// //
+// // ============================================================
+// // Persistent game state (lives in permanent memory)
+// // ============================================================
+// //
+//
+// pub const GameState = struct {
+//     initialized: bool,
+//     reload_count: u32,
+//     frame_counter: u64,
+//
+//     // Moving rectangle
+//     rect_x: f32,
+//     rect_y: f32,
+//     rect_w: f32,
+//     rect_h: f32,
+//     rect_dir: f32,
+//
+//     // Player
+//     player_x: f32,
+//     player_y: f32,
+//     player_size: f32,
+//     player_speed: f32,
+// };
+//
+// //
+// // ============================================================
+// // Game update (called every frame by platform)
+// // ============================================================
+// //
+//
+// pub export fn game_update(
+//     memory: [*]u8,
+//     memory_size: usize,
+//     window_width: f32,
+//     window_height: f32,
+//     command_buffer: *CommandBuffer,
+// ) callconv(.c) void {
+//     if (memory_size < @sizeOf(GameState)) return;
+//
+//     const state = @as(*GameState, @ptrCast(@alignCast(memory)));
+//
+//     // ------------------------------------------------------------
+//     // First-time initialization
+//     // ------------------------------------------------------------
+//     if (!state.initialized) {
+//         state.* = .{
+//             .initialized = true,
+//             .reload_count = 0,
+//             .frame_counter = 0,
+//
+//             .rect_x = 0,
+//             .rect_y = window_height * 0.4,
+//             .rect_w = 50,
+//             .rect_h = 50,
+//             .rect_dir = 2.5,
+//
+//             .player_x = window_width * 0.5,
+//             .player_y = window_height * 0.5,
+//             .player_size = 40,
+//             .player_speed = 3.0,
+//         };
+//
+//         std.debug.print("🎮 Game initialized ({d:.0}x{d:.0})\n", .{
+//             window_width,
+//             window_height,
+//         });
+//         return;
+//     }
+//
+//     state.frame_counter += 1;
+//
+//     // ------------------------------------------------------------
+//     // Update logic
+//     // ------------------------------------------------------------
+//
+//     // Bouncing rectangle
+//     state.rect_x += state.rect_dir;
+//     if (state.rect_x <= 0 or state.rect_x + state.rect_w >= window_width) {
+//         state.rect_dir *= -1;
+//     }
+//
+//     // Player movement
+//     if (isKeyDown(KEY_W)) state.player_y -= state.player_speed;
+//     if (isKeyDown(KEY_S)) state.player_y += state.player_speed;
+//     if (isKeyDown(KEY_A)) state.player_x -= state.player_speed;
+//     if (isKeyDown(KEY_D)) state.player_x += state.player_speed;
+//
+//     // Clamp player
+//     state.player_x = @max(0, @min(window_width - state.player_size, state.player_x));
+//     state.player_y = @max(0, @min(window_height - state.player_size, state.player_y));
+//
+//     // ------------------------------------------------------------
+//     // Render commands (NO Raylib here)
+//     // ------------------------------------------------------------
+//
+//     command_buffer.pushClearBackground(BLACK);
+//
+//     // Moving rectangle
+//     command_buffer.pushDrawRectangle(
+//         state.rect_x,
+//         state.rect_y,
+//         state.rect_w,
+//         state.rect_h,
+//         RED,
+//     );
+//
+//     // Player
+//     command_buffer.pushDrawRectangle(
+//         state.player_x,
+//         state.player_y,
+//         state.player_size,
+//         state.player_size,
+//         PURPLE,
+//     );
+//
+//     // Debug text
+//     const title = "Hot Reload + Command Buffer";
+//     command_buffer.pushDrawText(title.ptr, title.len, 10, 10, 20, WHITE);
+//
+//     var buffer: [64]u8 = undefined;
+//     const txt = std.fmt.bufPrint(
+//         &buffer,
+//         "Frame: {} | Reloads: {}",
+//         .{ state.frame_counter, state.reload_count },
+//     ) catch return;
+//
+//     command_buffer.pushDrawText(txt.ptr, txt.len, 10, 40, 18, YELLOW);
+// }
+//
+// //
+// // ============================================================
+// // Hot reload notification
+// // ============================================================
+// //
+//
+// pub export fn game_on_reload(
+//     memory: [*]u8,
+//     memory_size: usize,
+// ) callconv(.c) void {
+//     if (memory_size < @sizeOf(GameState)) return;
+//
+//     const state = @as(*GameState, @ptrCast(@alignCast(memory)));
+//     state.reload_count += 1;
+//
+//     std.debug.print(
+//         "🔥 Hot reload #{} | frame {}\n",
+//         .{ state.reload_count, state.frame_counter },
+//     );
+// }
