@@ -37,7 +37,7 @@ pub fn shouldClose(self: *const Platform) bool {
 pub fn beginFrame(self: *Platform) void {
     _ = self;
     c.beginDrawing();
-    c.clearBackground(c.RAYWHITE); // <-- ADD THIS LINE ONLY
+    // c.clearBackground(c.GREEN); // <-- ADD THIS LINE ONLY
 }
 pub fn endFrame(self: *Platform) void {
     _ = self;

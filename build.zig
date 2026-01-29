@@ -21,7 +21,9 @@ pub fn build(b: *std.Build) void {
     const game = b.addModule("game", .{
         .root_source_file = b.path("src/game/root.zig"),
         .target = target,
+        .link_libc = true,
         .imports = &.{
+            .{ .name = "zraylib", .module = zraylib },
             .{ .name = "platform", .module = platform },
         },
     });
