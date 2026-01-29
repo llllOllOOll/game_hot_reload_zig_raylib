@@ -12,7 +12,7 @@ const GameUpdateFn = *const fn (
     memory_size: usize,
     window_width: f32,
     window_height: f32,
-    command_buffer: *Platform.CommandBuffer,
+    renderer: *Platform.Renderer, // <-- aqui
 ) callconv(.c) void;
 
 const GameOnReloadFn = *const fn (
@@ -29,7 +29,6 @@ const GameCode = struct {
     pub fn load(path: []const u8) !GameCode {
         var threaded = std.Io.Threaded.init_single_threaded;
         const io = threaded.io();
-
         const file1 = try std.Io.Dir.cwd().openFile(io, path, .{});
         defer file1.close(io);
 
@@ -37,22 +36,22 @@ const GameCode = struct {
         const path_z = try std.fmt.bufPrintZ(&path_buf, "{s}", .{path});
 
         const handle = dl.dlopen(path_z.ptr, dl.RTLD_LAZY | dl.RTLD_LOCAL);
-
         if (handle == null) {
             const err_msg = dl.dlerror();
             if (err_msg != null) {
                 std.debug.print("❌ dlopen error: {s}\n", .{err_msg});
             }
-            return error.FileNotFound;
+            return error.DynamicLibraryLoadFailed; // <-- mudou aqui
         }
 
-        // ========== MUDANÇA: Usar .? para unwrap o optional ==========
         var lib = std.DynLib{ .inner = .{ .handle = handle.? } };
-        // ========== FIM DA MUDANÇA ==========
-
         errdefer lib.close();
 
-        const update_fn = lib.lookup(GameUpdateFn, "game_update") orelse return error.SymbolNotFound;
+        const update_fn = lib.lookup(GameUpdateFn, "game_update") orelse {
+            std.debug.print("❌ Symbol 'game_update' not found in {s}\n", .{path}); // <-- adicionou
+            return error.SymbolNotFound;
+        };
+
         const on_reload_fn = lib.lookup(GameOnReloadFn, "game_on_reload");
 
         const file = try std.Io.Dir.cwd().openFile(io, path, .{});
@@ -158,7 +157,7 @@ pub fn main() !void {
             game_memory.len,
             @as(f32, @floatFromInt(platform.config.width)),
             @as(f32, @floatFromInt(platform.config.height)),
-            platform.getCommandBuffer(),
+            platform.getRenderer(), // <-- e aqui
         );
 
         platform.endFrame();

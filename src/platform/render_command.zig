@@ -1,5 +1,5 @@
 /// Color representation independent from Raylib
-pub const Color = struct {
+pub const Color = extern struct {
     r: u8,
     g: u8,
     b: u8,
@@ -20,7 +20,6 @@ pub const RenderCommand = union(enum) {
     clear_background: struct {
         color: Color,
     },
-
     draw_rectangle: struct {
         x: f32,
         y: f32,
@@ -28,7 +27,6 @@ pub const RenderCommand = union(enum) {
         height: f32,
         color: Color,
     },
-
     draw_text: struct {
         text: [256]u8,
         text_len: usize,

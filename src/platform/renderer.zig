@@ -3,28 +3,30 @@ const c = @import("window.zig").c;
 const RenderCommand = @import("render_command.zig").RenderCommand;
 const Color = @import("render_command.zig").Color;
 
-pub const CommandBuffer = struct {
+pub const Vec2 = extern struct { x: f32, y: f32 };
+
+pub const Renderer = struct {
     commands: std.ArrayList(RenderCommand),
 
     pub fn init(
         allocator: std.mem.Allocator,
         capacity: usize,
-    ) !CommandBuffer {
+    ) !Renderer {
         return .{
             .commands = try std.ArrayList(RenderCommand)
                 .initCapacity(allocator, capacity),
         };
     }
 
-    pub fn deinit(self: *CommandBuffer, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *Renderer, allocator: std.mem.Allocator) void {
         self.commands.deinit(allocator);
     }
 
-    pub fn clear(self: *CommandBuffer) void {
+    pub fn clear(self: *Renderer) void {
         self.commands.clearRetainingCapacity();
     }
 
-    pub fn execute(self: *CommandBuffer) void {
+    pub fn execute(self: *Renderer) void {
         for (self.commands.items) |cmd| {
             switch (cmd) {
                 .clear_background => |clear_cmd| {
@@ -52,26 +54,26 @@ pub const CommandBuffer = struct {
         }
     }
 
-    // ===== Push API =====
+    // ===== Internal Push API =====
 
     pub fn pushClearBackground(
-        self: *CommandBuffer,
+        self: *Renderer,
         color: Color,
-    ) void { // Modified by Claude AI: removido '!' porque export não pode retornar erro
-        self.commands.appendAssumeCapacity(.{ // Modified by Claude AI: mudado para appendAssumeCapacity
+    ) void {
+        self.commands.appendAssumeCapacity(.{
             .clear_background = .{ .color = color },
         });
     }
 
     pub fn pushDrawRectangle(
-        self: *CommandBuffer,
+        self: *Renderer,
         x: f32,
         y: f32,
         width: f32,
         height: f32,
         color: Color,
-    ) void { // Modified by Claude AI: removido '!' porque export não pode retornar erro
-        self.commands.appendAssumeCapacity(.{ // Modified by Claude AI: mudado para appendAssumeCapacity
+    ) void {
+        self.commands.appendAssumeCapacity(.{
             .draw_rectangle = .{
                 .x = x,
                 .y = y,
@@ -83,18 +85,18 @@ pub const CommandBuffer = struct {
     }
 
     pub fn pushDrawText(
-        self: *CommandBuffer,
-        text: []const u8,
+        self: *Renderer,
+        txt: []const u8,
         x: f32,
         y: f32,
         size: f32,
         color: Color,
-    ) void { // Modified by Claude AI: removido '!' porque export não pode retornar erro
+    ) void {
+        const len = @min(txt.len, 256);
         var text_buffer: [256]u8 = undefined;
-        const len = @min(text.len, text_buffer.len);
-        @memcpy(text_buffer[0..len], text[0..len]);
+        @memcpy(text_buffer[0..len], txt[0..len]);
 
-        self.commands.appendAssumeCapacity(.{ // Modified by Claude AI: mudado para appendAssumeCapacity
+        self.commands.appendAssumeCapacity(.{
             .draw_text = .{
                 .text = text_buffer,
                 .text_len = len,
@@ -117,46 +119,33 @@ fn toRaylibColor(color: Color) c.Color {
 }
 
 // ======================================================
-// Modified by Claude AI: Funções exportadas para o game.so chamar
+// Exported C API for game.so
 // ======================================================
 
-// Modified by Claude AI: Export que decompõe Color em componentes RGBA
-export fn pushClearBackground(cmd_buf: *CommandBuffer, r: u8, g: u8, b: u8, a: u8) callconv(.c) void {
-    cmd_buf.pushClearBackground(.{ .r = r, .g = g, .b = b, .a = a });
+export fn clear(renderer: *Renderer, color: Color) callconv(.c) void {
+    renderer.pushClearBackground(color);
 }
 
-// Modified by Claude AI: Export que decompõe Color em componentes RGBA
-export fn pushDrawRectangle(
-    cmd_buf: *CommandBuffer,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
+export fn rect(
+    renderer: *Renderer,
+    pos: Vec2,
+    size: Vec2,
+    color: Color,
 ) callconv(.c) void {
-    cmd_buf.pushDrawRectangle(x, y, width, height, .{ .r = r, .g = g, .b = b, .a = a });
+    renderer.pushDrawRectangle(pos.x, pos.y, size.x, size.y, color);
 }
-
-// Modified by Claude AI: Export que decompõe Color em componentes RGBA
-export fn pushDrawText(
-    cmd_buf: *CommandBuffer,
+export fn text(
+    renderer: *Renderer,
     text_ptr: [*]const u8,
     text_len: usize,
     x: f32,
     y: f32,
     size: f32,
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
+    color: Color,
 ) callconv(.c) void {
-    cmd_buf.pushDrawText(text_ptr[0..text_len], x, y, size, .{ .r = r, .g = g, .b = b, .a = a });
+    renderer.pushDrawText(text_ptr[0..text_len], x, y, size, color);
 }
 
-// Modified by Claude AI: Export para isKeyDown
 export fn isKeyDown(key: c_int) callconv(.c) bool {
     return c.isKeyDown(@intCast(key));
 }
