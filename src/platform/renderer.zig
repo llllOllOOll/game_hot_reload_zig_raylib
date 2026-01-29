@@ -3,7 +3,50 @@ const c = @import("window.zig").c;
 const RenderCommand = @import("render_command.zig").RenderCommand;
 const Color = @import("render_command.zig").Color;
 
+// ======================================================
+// Exported C API for game.so
+// ======================================================
 pub const Vec2 = extern struct { x: f32, y: f32 };
+
+// Hangle input //
+export fn isKeyPressed(self: *Renderer, key: i32) callconv(.c) bool {
+    _ = self; // Renderer instance not needed for input, but kept for API consistency
+    return c.isKeyPressed(key);
+}
+
+export fn isKeyDown(self: *Renderer, key: i32) callconv(.c) bool {
+    _ = self; // Renderer instance not needed for input, but kept for API consistency
+    return c.isKeyDown(key);
+}
+
+export fn clear(renderer: *Renderer, color: Color) callconv(.c) void {
+    renderer.pushClearBackground(color);
+}
+
+export fn rect(
+    renderer: *Renderer,
+    pos: Vec2,
+    size: Vec2,
+    color: Color,
+) callconv(.c) void {
+    renderer.pushDrawRectangle(pos.x, pos.y, size.x, size.y, color);
+}
+export fn text(
+    renderer: *Renderer,
+    text_ptr: [*]const u8,
+    text_len: usize,
+    x: f32,
+    y: f32,
+    size: f32,
+    color: Color,
+) callconv(.c) void {
+    renderer.pushDrawText(text_ptr[0..text_len], x, y, size, color);
+}
+
+// I don´t know why is that here before I add it on the top
+// export fn isKeyDown(key: c_int) callconv(.c) bool {
+//     return c.isKeyDown(@intCast(key));
+// }
 
 pub const Renderer = struct {
     commands: std.ArrayList(RenderCommand),
@@ -116,36 +159,4 @@ fn toRaylibColor(color: Color) c.Color {
         .b = color.b,
         .a = color.a,
     };
-}
-
-// ======================================================
-// Exported C API for game.so
-// ======================================================
-
-export fn clear(renderer: *Renderer, color: Color) callconv(.c) void {
-    renderer.pushClearBackground(color);
-}
-
-export fn rect(
-    renderer: *Renderer,
-    pos: Vec2,
-    size: Vec2,
-    color: Color,
-) callconv(.c) void {
-    renderer.pushDrawRectangle(pos.x, pos.y, size.x, size.y, color);
-}
-export fn text(
-    renderer: *Renderer,
-    text_ptr: [*]const u8,
-    text_len: usize,
-    x: f32,
-    y: f32,
-    size: f32,
-    color: Color,
-) callconv(.c) void {
-    renderer.pushDrawText(text_ptr[0..text_len], x, y, size, color);
-}
-
-export fn isKeyDown(key: c_int) callconv(.c) bool {
-    return c.isKeyDown(@intCast(key));
 }
