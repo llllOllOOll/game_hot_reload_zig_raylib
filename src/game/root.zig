@@ -58,6 +58,7 @@ pub export fn game_update(
     window_width: f32,
     window_height: f32,
     renderer: *Renderer,
+    dt: f32,
 ) callconv(.c) void {
     if (memory_size < @sizeOf(GameState)) return;
 
@@ -78,28 +79,56 @@ pub export fn game_update(
 
     renderer.clear(BLACK);
 
-    const speed = 5.0;
-    const jump_power = -15.0;
-    const gravity = 0.8;
+    // ============================================================
+    // Physics Configuration
+    // ============================================================
+    //
+    // SPEED: 300.0 pixels/second
+    //   - Horizontal movement velocity
+    //   - Applied as: position += speed * dt
+    //   - Example: at 60fps (dt ≈ 0.016s), moves ~5 pixels/frame
+    //
+    // JUMP_VELOCITY: -400.0 pixels/second
+    //   - Initial upward velocity when jumping (negative = up)
+    //   - Applied instantly when space is pressed
+    //   - Takes ~0.4s to reach peak height (~80 pixels up)
+    //
+    // GRAVITY: 980.0 pixels/second²
+    //   - Constant downward acceleration (Earth-like: 9.8 m/s²)
+    //   - Applied as: velocity_y += gravity * dt each frame
+    //   - Pulls player down creating parabolic jump arc
+    //
+    // Physics Loop:
+    //   1. velocity_y += gravity * dt    (apply gravity)
+    //   2. position.y += velocity_y * dt (apply velocity)
+    //   3. if on_ground: velocity_y = 0  (stop falling)
+    //
+    // Delta Time (dt):
+    //   - Time elapsed since last frame (in seconds)
+    //   - Ensures consistent physics at any framerate
+    //   - 60fps: dt ≈ 0.016s | 30fps: dt ≈ 0.033s
+    // ============================================================
+    const speed = 300.0;
+    const jump_velocity = -400.0;
+    const gravity = 980.0;
     const ground_y = 400.0;
 
-    // Horizontal movement
     if (renderer.isKeyDown(KEY_A)) {
-        state.player_pos.x -= speed;
+        state.player_pos.x -= speed * dt;
     }
     if (renderer.isKeyDown(KEY_D)) {
-        state.player_pos.x += speed;
+        state.player_pos.x += speed * dt;
     }
 
     // Jump (only when on ground)
     if (renderer.isKeyPressed(KEY_SPACE) and !state.is_jumping) {
-        state.velocity_y = jump_power;
+        state.velocity_y = jump_velocity;
         state.is_jumping = true;
     }
 
     // Apply gravity
-    state.velocity_y += gravity;
-    state.player_pos.y += state.velocity_y;
+    state.velocity_y += gravity * dt;
+    state.player_pos.y += state.velocity_y * dt;
 
     // Ground collision
     if (state.player_pos.y >= ground_y) {

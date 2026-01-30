@@ -12,6 +12,7 @@ const GameUpdateFn = *const fn (
     window_width: f32,
     window_height: f32,
     renderer: *Platform.Renderer,
+    dt: f32,
 ) callconv(.c) void;
 
 const GameOnReloadFn = *const fn (
@@ -156,9 +157,10 @@ pub fn main() !void {
     // Main game loop
     var frame_counter: u64 = 0;
     while (!platform.shouldClose()) {
+        const dt = platform.getFrameTime();
+
         frame_counter += 1;
         if (frame_counter % 60 == 0) { // Print once per second at 60 FPS
-            // std.debug.print("[HOT-RELOAD-DEBUG] Frame {} - Checking hot reload\n", .{frame_counter});
         }
 
         // Check for hot reload every frame
@@ -173,7 +175,8 @@ pub fn main() !void {
             game_memory.len,
             @as(f32, @floatFromInt(platform.config.width)),
             @as(f32, @floatFromInt(platform.config.height)),
-            platform.getRenderer(), // <-- e aqui
+            platform.getRenderer(),
+            dt,
         );
 
         platform.endFrame();

@@ -75,17 +75,17 @@ pub fn shouldClose(self: *const Platform) bool {
 // Frame lifecycle
 // ======================================================
 
-/// Begin frame:
-/// - clear renderer
-/// - start Raylib drawing
+pub fn getFrameTime(self: *Platform) f32 {
+    // self.window.getFrameTime();
+    _ = self;
+    return c.getFrameTime();
+}
+
 pub fn beginFrame(self: *Platform) void {
     self.renderer.clear();
     c.beginDrawing();
 }
 
-/// End frame:
-/// - execute render commands
-/// - finish Raylib drawing
 pub fn endFrame(self: *Platform) void {
     self.renderer.execute();
     c.endDrawing();

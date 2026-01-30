@@ -10,12 +10,12 @@ pub const Vec2 = extern struct { x: f32, y: f32 };
 
 // Hangle input //
 export fn isKeyPressed(self: *Renderer, key: i32) callconv(.c) bool {
-    _ = self; // Renderer instance not needed for input, but kept for API consistency
+    _ = self;
     return c.isKeyPressed(key);
 }
 
 export fn isKeyDown(self: *Renderer, key: i32) callconv(.c) bool {
-    _ = self; // Renderer instance not needed for input, but kept for API consistency
+    _ = self;
     return c.isKeyDown(key);
 }
 
@@ -42,11 +42,6 @@ export fn text(
 ) callconv(.c) void {
     renderer.pushDrawText(text_ptr[0..text_len], x, y, size, color);
 }
-
-// I don´t know why is that here before I add it on the top
-// export fn isKeyDown(key: c_int) callconv(.c) bool {
-//     return c.isKeyDown(@intCast(key));
-// }
 
 pub const Renderer = struct {
     commands: std.ArrayList(RenderCommand),
