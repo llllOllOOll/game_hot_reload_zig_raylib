@@ -91,6 +91,24 @@ pub fn endFrame(self: *Platform) void {
     c.endDrawing();
 }
 
+// pub fn loadTexture(self: *Platform, path: [*:0]const u8) c.Texture2D {
+//     _ = self;
+//     return c.loadTexture(path);
+// }
+//
+// pub fn drawTexture(
+//     self: *Platform,
+//     texture: c.Texture2D,
+//     source: c.Rectangle,
+//     dest: c.Rectangle,
+//     origin: c.Vector2,
+//     rotation: f32,
+//     tint: c.Color,
+// ) void {
+//     _ = self;
+//     c.drawTexturePro(texture, source, dest, origin, rotation, tint);
+// }
+
 pub fn pollEvents(self: *Platform) void {
     _ = self;
     // Raylib handles input/events internally for now

@@ -1,9 +1,12 @@
 const std = @import("std");
+const Animation = @import("animation.zig");
+const AnimationPlayer = @import("animation_player.zig");
 
 // ============================================================
 // Structs básicas
 // ============================================================
-
+pub const Texture2D = opaque {};
+pub const Rectangle = @import("animation.zig").Rectangle;
 pub const Color = extern struct {
     r: u8,
     g: u8,
@@ -30,6 +33,7 @@ const KEY_D: i32 = 68;
 
 // Space key
 const KEY_SPACE: i32 = 32;
+pub const Vec2 = @import("animation.zig").Vec2;
 
 pub const GameState = struct {
     initialized: bool,
@@ -39,16 +43,20 @@ pub const GameState = struct {
     velocity_x: f32,
     coyote_timer: f32,
     is_jumping: bool,
+    anim_player: AnimationPlayer,
+    walk_texture: *Texture2D,
 };
-
-pub const Vec2 = extern struct { x: f32, y: f32 };
 
 pub const Renderer = opaque {
     extern fn clear(self: *Renderer, color: Color) void;
     extern fn rect(self: *Renderer, pos: Vec2, size: Vec2, color: Color) void;
     extern fn isKeyPressed(self: *Renderer, key: i32) bool;
     extern fn isKeyDown(self: *Renderer, key: i32) bool;
+    extern fn loadTexture(self: *Renderer, path: [*]const u8) *Texture2D;
+    extern fn drawTexture(self: *Renderer, texture: *Texture2D, src_rect: Rectangle, dest_rect: Rectangle, origin: Vec2, rotation: f32, tint: Color) void;
 };
+
+pub const Vec4 = extern struct { x: f32, y: f32, z: f32, w: f32 };
 
 // ============================================================
 // Exports
@@ -67,15 +75,34 @@ pub export fn game_update(
     const state = @as(*GameState, @ptrCast(@alignCast(memory)));
 
     if (!state.initialized) {
+        // Load texture for animation
+        const walk_texture = renderer.loadTexture("assets/walk/walk_Left_Up.png");
+        std.debug.print("🖼️ Textura carregada: {*}\n", .{walk_texture});
+
+        // Create walk animation
+        const walk_anim = Animation.init(
+            walk_texture,
+            384.0,
+            64.0,
+            8,
+            0.1,
+            true,
+        );
+
         state.* = .{
             .initialized = true,
             .frame_counter = 0,
-            .player_pos = .{ .x = 200, .y = 200 },
+            .player_pos = .{ .x = 200, .y = 550 },
             .velocity_y = 0,
             .velocity_x = 0,
             .coyote_timer = 0,
             .is_jumping = false,
+            .anim_player = AnimationPlayer.init(),
+            .walk_texture = walk_texture,
         };
+        state.anim_player.addAnimation("walk", walk_anim) catch {};
+        state.anim_player.play("walk") catch {};
+
         std.debug.print("🎮 Inicializado! {d}x{d}\n", .{ window_width, window_height });
     }
 
@@ -127,10 +154,6 @@ pub export fn game_update(
     const friction = 0.15;
     const coyote_time = 0.15;
 
-    const ground_y = 670.0;
-    const player_width = 50.0;
-    const player_height = 50.0;
-
     // ============================================================
     // Horizontal Movement (with friction)
     // ============================================================
@@ -157,9 +180,10 @@ pub export fn game_update(
     state.player_pos.y += state.velocity_y * dt;
 
     // Ground collision
-    const on_ground = state.player_pos.y + player_height >= ground_y;
+    const on_ground = state.player_pos.y + 50.0 >= 670.0;
+
     if (on_ground) {
-        state.player_pos.y = ground_y - player_height;
+        state.player_pos.y = 670.0 - 50.0;
         state.velocity_y = 0;
         state.is_jumping = false;
     }
@@ -171,6 +195,21 @@ pub export fn game_update(
         state.coyote_timer = coyote_time; // Reset timer when on ground
     } else {
         state.coyote_timer -= dt; // Decrease timer when in air
+    }
+
+    // Atualizar animação
+    state.anim_player.update(dt);
+
+    // Desenhar animação ao invés do retângulo
+    if (state.anim_player.getCurrentAnimation()) |anim| {
+        const source = anim.getSourceRect(false); // flip_x = false
+        const dest = anim.getDestRect(state.player_pos, 3.0); // scale = 1.0
+
+        const origin = Vec2{ .x = 24, .y = 64 }; // Metade da largura (48/2), altura total (64)
+        const tint = Color{ .r = 255, .g = 255, .b = 255, .a = 255 };
+
+        // Draw animation
+        renderer.drawTexture(state.walk_texture, source, dest, origin, 0.0, tint);
     }
 
     // Jump (with coyote time)
@@ -185,14 +224,13 @@ pub export fn game_update(
     // ============================================================
 
     // Draw player
-    renderer.rect(state.player_pos, .{ .x = player_width, .y = player_height }, WHITE);
 
     // Draw ground
-    renderer.rect(.{ .x = 0, .y = ground_y }, .{ .x = 800, .y = 50 }, RED);
+    renderer.rect(.{ .x = 0, .y = 670.0 }, .{ .x = 800, .y = 50 }, BLUE);
 
     // Debug frame counter
     if (state.frame_counter % 60 == 0) {
-        std.debug.print("✅ Frame from Game: {}\n", .{state.frame_counter});
+        // std.debug.print("✅ Frame from Game: {}\n", .{state.frame_counter});
     }
 }
 

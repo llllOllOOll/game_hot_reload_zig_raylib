@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/game/root.zig"),
             .target = target,
             .optimize = optimize,
-            // .link_libc = true, // ✅ ADICIONAR AQUI
+            .link_libc = true, // ✅ ADICIONAR AQUI
         }),
         .linkage = .dynamic,
     });

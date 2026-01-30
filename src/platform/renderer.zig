@@ -7,6 +7,7 @@ const Color = @import("render_command.zig").Color;
 // Exported C API for game.so
 // ======================================================
 pub const Vec2 = extern struct { x: f32, y: f32 };
+pub const Vec4 = extern struct { x: f32, y: f32, z: f32, w: f32 };
 
 // Hangle input //
 export fn isKeyPressed(self: *Renderer, key: i32) callconv(.c) bool {
@@ -41,6 +42,35 @@ export fn text(
     color: Color,
 ) callconv(.c) void {
     renderer.pushDrawText(text_ptr[0..text_len], x, y, size, color);
+}
+
+export fn loadTexture(renderer: *Renderer, path: [*]const u8) callconv(.c) *c.Texture2D {
+    _ = renderer;
+    const texture_ptr = std.heap.c_allocator.create(c.Texture2D) catch unreachable;
+    texture_ptr.* = c.loadTexture(path); // Maiúsculo!
+    std.debug.print("📸 Loaded: {any}\n", .{texture_ptr.*});
+    return texture_ptr;
+}
+
+export fn unloadTexture(renderer: *Renderer, texture: *c.Texture2D) callconv(.c) void {
+    _ = renderer;
+    c.unloadTexture(texture.*);
+    std.heap.c_allocator.destroy(texture);
+}
+
+export fn drawTexture(
+    self: *Renderer,
+    texture_ptr: *anyopaque,
+    source: c.Rectangle,
+    dest: c.Rectangle,
+    origin: c.Vector2,
+    rotation: f32,
+    tint: c.Color,
+) callconv(.c) void {
+    _ = self;
+    const texture = @as(*c.Texture2D, @ptrCast(@alignCast(texture_ptr))).*;
+    std.debug.print("🎨 Drawing texture: {any}\n", .{texture});
+    c.drawTexturePro(texture, source, dest, origin, rotation, tint);
 }
 
 pub const Renderer = struct {
