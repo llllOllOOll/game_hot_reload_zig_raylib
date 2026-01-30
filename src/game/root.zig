@@ -109,12 +109,13 @@ pub export fn game_update(
     }
 
     // Draw player
-    renderer.rect(state.player_pos, .{ .x = 100, .y = 201 }, BLUE);
+    renderer.rect(state.player_pos, .{ .x = 100, .y = 201 }, WHITE);
+    // renderer.rect(.{ .x = 0, .y = ground_y + 201 }, .{ .x = 800, .y = 50 }, BLUE);
     renderer.rect(.{ .x = 0, .y = ground_y + 201 }, .{ .x = 800, .y = 50 }, RED);
     // renderer.rect(.{ .x = 100, .y = 100 }, .{ .x = 50, .y = 50 }, RED);
 
     if (state.frame_counter % 60 == 0) {
-        std.debug.print("✅ Frame {}\n", .{state.frame_counter});
+        std.debug.print("✅ Frame  from Game .so Let see Luna! {}\n", .{state.frame_counter});
     }
 }
 
@@ -125,5 +126,5 @@ pub export fn game_on_reload(
     if (memory_size < @sizeOf(GameState)) return;
 
     const state = @as(*GameState, @ptrCast(@alignCast(memory)));
-    std.debug.print("🔥 Hot reload! Frame atual: {}\n", .{state.frame_counter});
+    std.debug.print("🔥 Hot reload! Frame - Game  atual: {}\n", .{state.frame_counter});
 }

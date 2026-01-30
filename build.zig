@@ -91,4 +91,10 @@ pub fn build(b: *std.Build) void {
         "zig build; " ++
         "done" });
     watch_step.dependOn(&watch_cmd.step);
+
+    // ========================================
+    // GAME STEP (rebuild apenas game.so)
+    // ========================================
+    const game_step = b.step("game", "Rebuild only game library");
+    game_step.dependOn(&b.addInstallArtifact(game_lib, .{}).step);
 }

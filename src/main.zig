@@ -6,13 +6,12 @@ const dl = @cImport({
     @cInclude("dlfcn.h");
 });
 
-// Tipo das funções exportadas pelo game code
 const GameUpdateFn = *const fn (
     memory_ptr: [*]u8,
     memory_size: usize,
     window_width: f32,
     window_height: f32,
-    renderer: *Platform.Renderer, // <-- aqui
+    renderer: *Platform.Renderer,
 ) callconv(.c) void;
 
 const GameOnReloadFn = *const fn (
@@ -58,6 +57,8 @@ const GameCode = struct {
         defer file.close(io);
         const stat = try file.stat(io);
 
+        std.debug.print("[HOT-RELOAD-DEBUG] Initial library loaded, storing timestamp: {}\n", .{stat.mtime.nanoseconds});
+
         return .{
             .lib = lib,
             .update_fn = update_fn,
@@ -80,28 +81,37 @@ fn hotReloadIfNeeded(
     var threaded = std.Io.Threaded.init_single_threaded;
     const io = threaded.io();
 
-    const file = std.Io.Dir.cwd().openFile(io, path, .{}) catch return;
+    const file = std.Io.Dir.cwd().openFile(io, path, .{}) catch {
+        std.debug.print("[HOT-RELOAD-DEBUG] Failed to open file: {s}\n", .{path});
+        return;
+    };
     defer file.close(io);
 
-    const stat = file.stat(io) catch return;
+    const stat = file.stat(io) catch {
+        std.debug.print("[HOT-RELOAD-DEBUG] Failed to stat file: {s}\n", .{path});
+        return;
+    };
 
-    if (stat.mtime.nanoseconds != game_code.last_mod_time.nanoseconds) {
+    const timestamps_differ = stat.mtime.nanoseconds != game_code.last_mod_time.nanoseconds;
+    if (timestamps_differ) {
         std.debug.print("\n🔥 Hot reload detected!\n", .{});
 
+        game_code.unload();
         const new_game_code = GameCode.load(path) catch |err| {
-            std.debug.print("Hot reload failed: {}, keeping old code\n\n", .{err});
+            std.debug.print("[HOT-RELOAD-DEBUG] Library load failed: {}\n", .{err});
             return;
         };
+        std.debug.print("[HOT-RELOAD-DEBUG] New library loaded successfully\n", .{});
 
-        game_code.unload();
         game_code.* = new_game_code;
 
         // Notify game code about reload
         if (game_code.on_reload_fn) |on_reload| {
             on_reload(permanent_memory, permanent_size);
+            std.debug.print("[HOT-RELOAD-DEBUG] on_reload callback completed\n", .{});
+        } else {
+            std.debug.print("[HOT-RELOAD-DEBUG] No on_reload function found\n", .{});
         }
-
-        std.debug.print("✓ Reloaded successfully!\n\n", .{});
     }
 }
 
@@ -144,7 +154,13 @@ pub fn main() !void {
     std.debug.print("Press WASD to move, modify src/game/root.zig and recompile for hot reload!\n\n", .{});
 
     // Main game loop
+    var frame_counter: u64 = 0;
     while (!platform.shouldClose()) {
+        frame_counter += 1;
+        if (frame_counter % 60 == 0) { // Print once per second at 60 FPS
+            // std.debug.print("[HOT-RELOAD-DEBUG] Frame {} - Checking hot reload\n", .{frame_counter});
+        }
+
         // Check for hot reload every frame
         hotReloadIfNeeded(&game_code, so_path, &game_memory, game_memory.len);
 
