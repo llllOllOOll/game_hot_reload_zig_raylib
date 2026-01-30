@@ -111,7 +111,7 @@ pub export fn game_update(
     const speed = 300.0;
     const jump_velocity = -400.0;
     const gravity = 980.0;
-    const ground_y = 400.0;
+    const ground_y = 600.0;
 
     if (renderer.isKeyDown(KEY_A)) {
         state.player_pos.x -= speed * dt;
@@ -130,17 +130,23 @@ pub export fn game_update(
     state.velocity_y += gravity * dt;
     state.player_pos.y += state.velocity_y * dt;
 
-    // Ground collision
-    if (state.player_pos.y >= ground_y) {
-        state.player_pos.y = ground_y;
+    const player_height = 50.0; // Altura do seu player
+    if (state.player_pos.y + player_height >= ground_y) {
+        state.player_pos.y = ground_y - player_height;
         state.velocity_y = 0;
         state.is_jumping = false;
     }
+    // Ground collision
+    // if (state.player_pos.y >= ground_y) {
+    //     state.player_pos.y = ground_y;
+    //     state.velocity_y = 0;
+    //     state.is_jumping = false;
+    // }
 
     // Draw player
-    renderer.rect(state.player_pos, .{ .x = 100, .y = 201 }, WHITE);
+    renderer.rect(state.player_pos, .{ .x = 50, .y = 50 }, WHITE);
     // renderer.rect(.{ .x = 0, .y = ground_y + 201 }, .{ .x = 800, .y = 50 }, BLUE);
-    renderer.rect(.{ .x = 0, .y = ground_y + 201 }, .{ .x = 800, .y = 50 }, RED);
+    renderer.rect(.{ .x = 0, .y = ground_y }, .{ .x = 800, .y = 50 }, RED);
     // renderer.rect(.{ .x = 100, .y = 100 }, .{ .x = 50, .y = 50 }, RED);
 
     if (state.frame_counter % 60 == 0) {
