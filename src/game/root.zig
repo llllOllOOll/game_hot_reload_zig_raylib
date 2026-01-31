@@ -3,7 +3,7 @@ const Animation = @import("animation.zig");
 const AnimationPlayer = @import("animation_player.zig");
 
 // ============================================================
-// Structs básicas
+// Structs basics
 // ============================================================
 pub const Texture2D = opaque {};
 pub const Rectangle = @import("animation.zig").Rectangle;
@@ -45,6 +45,9 @@ pub const GameState = struct {
     is_jumping: bool,
     anim_player: AnimationPlayer,
     walk_texture: *Texture2D,
+    walk_left_texture: *Texture2D,
+    walk_right_texture: *Texture2D,
+    facing_right: bool, // Track direction
 };
 
 pub const Renderer = opaque {
@@ -76,18 +79,8 @@ pub export fn game_update(
 
     if (!state.initialized) {
         // Load texture for animation
-        const walk_texture = renderer.loadTexture("assets/walk/walk_Left_Up.png");
-        std.debug.print("🖼️ Textura carregada: {*}\n", .{walk_texture});
-
-        // Create walk animation
-        const walk_anim = Animation.init(
-            walk_texture,
-            384.0,
-            64.0,
-            8,
-            0.1,
-            true,
-        );
+        const walk_left_texture = renderer.loadTexture("assets/walk/walk_Left_Up.png");
+        const walk_right_texture = renderer.loadTexture("assets/walk/walk_Right_Up.png");
 
         state.* = .{
             .initialized = true,
@@ -98,10 +91,19 @@ pub export fn game_update(
             .coyote_timer = 0,
             .is_jumping = false,
             .anim_player = AnimationPlayer.init(),
-            .walk_texture = walk_texture,
+            .walk_texture = undefined, // Will be set below
+            .walk_left_texture = walk_left_texture,
+            .walk_right_texture = walk_right_texture,
+            .facing_right = true,
         };
-        state.anim_player.addAnimation("walk", walk_anim) catch {};
-        state.anim_player.play("walk") catch {};
+
+        const walk_left = Animation.init(walk_left_texture, 384.0, 64.0, 8, 0.1, true);
+        const walk_right = Animation.init(walk_right_texture, 384.0, 64.0, 8, 0.1, true);
+
+        state.anim_player.addAnimation("walk_left", walk_left) catch {};
+        state.anim_player.addAnimation("walk_right", walk_right) catch {};
+
+        state.anim_player.play("walk_left") catch {};
 
         std.debug.print("🎮 Inicializado! {d}x{d}\n", .{ window_width, window_height });
     }
@@ -168,6 +170,15 @@ pub export fn game_update(
         // Stopped: decelerate smoothly
         state.velocity_x *= (1.0 - friction);
     }
+    if (direction < 0) {
+        state.facing_right = false;
+        state.anim_player.play("walk_left") catch {};
+        std.debug.print("← Moving left, facing_right: {}\n", .{state.facing_right});
+    } else if (direction > 0) {
+        state.facing_right = true;
+        state.anim_player.play("walk_right") catch {};
+        std.debug.print("→ Moving right, facing_right: {}\n", .{state.facing_right});
+    }
 
     state.player_pos.x += state.velocity_x * dt;
 
@@ -202,14 +213,18 @@ pub export fn game_update(
 
     // Desenhar animação ao invés do retângulo
     if (state.anim_player.getCurrentAnimation()) |anim| {
-        const source = anim.getSourceRect(false); // flip_x = false
+        const source = anim.getSourceRect(!state.facing_right); // flip_x based on direction
         const dest = anim.getDestRect(state.player_pos, 3.0); // scale = 1.0
 
         const origin = Vec2{ .x = 24, .y = 64 }; // Metade da largura (48/2), altura total (64)
         const tint = Color{ .r = 255, .g = 255, .b = 255, .a = 255 };
 
-        // Draw animation
-        renderer.drawTexture(state.walk_texture, source, dest, origin, 0.0, tint);
+        // Draw animation with appropriate texture
+        const current_texture = if (state.facing_right) state.walk_right_texture else state.walk_left_texture;
+        std.debug.print("Drawing animation: facing_right={}, texture_ptr={*}\n", .{ state.facing_right, current_texture });
+        renderer.drawTexture(current_texture, source, dest, origin, 0.0, tint);
+    } else {
+        std.debug.print("No current animation!\n", .{});
     }
 
     // Jump (with coyote time)
@@ -226,7 +241,7 @@ pub export fn game_update(
     // Draw player
 
     // Draw ground
-    renderer.rect(.{ .x = 0, .y = 670.0 }, .{ .x = 800, .y = 50 }, BLUE);
+    renderer.rect(.{ .x = 0, .y = 685.0 }, .{ .x = 800, .y = 50 }, WHITE);
 
     // Debug frame counter
     if (state.frame_counter % 60 == 0) {
