@@ -124,10 +124,10 @@ pub fn main() !void {
     // Initialize allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    // const allocator = gpa.allocator();
 
     // Initialize platform with allocator
-    var platform = try Platform.init(allocator, .{
+    var platform = try Platform.init(.{
         .width = 1280,
         .height = 720,
         .title = "My Game - Hot Reload + Command Buffer",

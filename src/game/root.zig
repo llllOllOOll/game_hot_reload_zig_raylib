@@ -221,7 +221,6 @@ pub export fn game_update(
 
         // Draw animation with appropriate texture
         const current_texture = if (state.facing_right) state.walk_right_texture else state.walk_left_texture;
-        std.debug.print("Drawing animation: facing_right={}, texture_ptr={*}\n", .{ state.facing_right, current_texture });
         renderer.drawTexture(current_texture, source, dest, origin, 0.0, tint);
     } else {
         std.debug.print("No current animation!\n", .{});
@@ -241,7 +240,7 @@ pub export fn game_update(
     // Draw player
 
     // Draw ground
-    renderer.rect(.{ .x = 0, .y = 685.0 }, .{ .x = 800, .y = 50 }, WHITE);
+    renderer.rect(.{ .x = 0, .y = 685.0 }, .{ .x = 1280, .y = 50 }, WHITE);
 
     // Debug frame counter
     if (state.frame_counter % 60 == 0) {
